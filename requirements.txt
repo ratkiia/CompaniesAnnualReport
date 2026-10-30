@@ -1,0 +1,29 @@
+# Core Python dependencies for the annual-report RAG project
+python-dotenv>=1.0.1
+pandas>=2.2.0
+numpy>=1.26.0
+requests>=2.32.0
+
+# Document parsing
+pypdf>=5.0.0
+python-docx>=1.1.0
+docx2txt>=0.8.1
+
+# RAG / embeddings
+langchain>=0.3.0
+langchain-community>=0.3.0
+openai>=1.40.0
+tiktoken>=0.7.0
+sentence-transformers>=3.2.1
+faiss-cpu>=1.7.4
+
+# Optional UI / utilities
+streamlit>=1.36.0
+
+psycopg[binary]
+uvicorn
+pydantic
+pydocx==0.9.7
+langgraph
+langchain-openai
+langchain-postgres
