@@ -86,6 +86,14 @@ splitter = RecursiveCharacterTextSplitter(
 
 @lru_cache(maxsize=1)
 def _get_engine():
+    """Create and cache the SQLAlchemy engine used for pgvector queries.
+
+    Input:
+        None. Reads the PG_CONN_STR environment value from the project config.
+
+    Output:
+        A SQLAlchemy engine configured for PostgreSQL with psycopg support.
+    """
     if not PG_CONN_STR:
         raise ValueError("PG_CONN_STR is not set; configure it in the .env file.")
     connection_string = PG_CONN_STR
@@ -102,6 +110,15 @@ def _get_engine():
 
 @lru_cache(maxsize=1)
 def _get_embeddings() -> OpenAIEmbeddings:
+    """Build the shared embedding client for source-text vectorization.
+
+    Input:
+        None.
+
+    Output:
+        OpenAIEmbeddings configured for the 1536-dimension text-embedding-3-small
+        model used in the project.
+    """
     return OpenAIEmbeddings(
         model="text-embedding-3-small",
         dimensions=EMBEDDING_DIMENSIONS,
@@ -111,6 +128,15 @@ def _get_embeddings() -> OpenAIEmbeddings:
 def _read_document(
     path: str,
 ) -> Tuple[str, Optional[datetime], Optional[datetime]]:
+    """Extract plain text and document metadata from a DOCX or PDF file.
+
+    Input:
+        path (str): Absolute or relative path to the support annual-report file.
+
+    Output:
+        Tuple[str, Optional[datetime], Optional[datetime]]: The extracted text,
+        creation timestamp, and modification timestamp.
+    """
     document_path = Path(path)
     if not document_path.is_file():
         raise FileNotFoundError(f"Annual report not found: {document_path}")
@@ -153,19 +179,27 @@ def _read_document(
 
 
 def load_docx_text(path: str) -> str:
-    """
-    Reads a supported DOCX or PDF file and returns its extracted text.
+    """Return the extracted text from a DOCX or PDF file.
 
-    Args:
-        path: File system path to a DOCX or PDF file.
+    Input:
+        path (str): File system path to a supported report file.
 
-    Returns:
-        Extracted text from the file.
+    Output:
+        str: The report text extracted from the file, without any metadata.
     """
     return _read_document(path)[0]
 
 
 def _one_year_after(value: Optional[datetime]) -> Optional[datetime]:
+    """Calculate the approximate one-year expiration date for a document.
+
+    Input:
+        value (Optional[datetime]): The original creation or modification date.
+
+    Output:
+        Optional[datetime]: The equivalent timestamp one year later, preserving the
+        same month/day when possible.
+    """
     if value is None:
         return None
 
@@ -175,10 +209,26 @@ def _one_year_after(value: Optional[datetime]) -> Optional[datetime]:
 
 
 def _format_datetime(value: Optional[datetime]) -> Optional[str]:
+    """Convert a datetime into ISO format for metadata storage.
+
+    Input:
+        value (Optional[datetime]): Timestamp to serialize.
+
+    Output:
+        Optional[str]: ISO 8601 string or None when no timestamp exists.
+    """
     return value.isoformat() if value is not None else None
 
 
 def _document_version_id(path: Path) -> str:
+    """Create a stable SHA-256 content hash for a source file.
+
+    Input:
+        path (Path): File path to the annual report.
+
+    Output:
+        str: Hex digest representing the file contents used for version tracking.
+    """
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
@@ -186,16 +236,15 @@ def build_AnnualReport_documents(
     Doc_paths: List[str],
     stock_tickers: List[str],
 ) -> List[Document]:
-    """
-    Converts annual report DOCX or PDF files into LangChain Document objects.
-    Each document includes its stock ticker and embedded document dates.
+    """Create LangChain Document objects from annual-report files.
 
-    Args:
-        Doc_paths: File paths to annual report DOCX or PDF files.
-        stock_tickers: Tickers corresponding to each report.
+    Input:
+        Doc_paths (List[str]): Report file paths to read.
+        stock_tickers (List[str]): Matching ticker values for each report.
 
-    Returns:
-        List of Document objects ready for chunking and embedding.
+    Output:
+        List[Document]: Parsed document payloads that include source metadata and
+        a content hash for versioning.
     """
     docs: List[Document] = []
 
@@ -226,10 +275,26 @@ def build_AnnualReport_documents(
 
 
 def _parse_datetime(value: Optional[str]) -> Optional[datetime]:
+    """Parse an ISO timestamp string back into a datetime object.
+
+    Input:
+        value (Optional[str]): Serialized ISO timestamp from metadata.
+
+    Output:
+        Optional[datetime]: Python datetime or None when no value is stored.
+    """
     return datetime.fromisoformat(value) if value is not None else None
 
 
 def _ensure_report_table(engine) -> None:
+    """Create the pgvector table and backfill missing version metadata.
+
+    Input:
+        engine: SQLAlchemy engine connected to the PostgreSQL database.
+
+    Output:
+        None. The table and required columns are created or migrated in place.
+    """
     with engine.begin() as connection:
         connection.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     table_metadata.create_all(engine)
@@ -268,19 +333,15 @@ def ingest_CompanyAnnualRpt_docs(
     Doc_paths: List[str],
     stock_tickers: List[str],
 ) -> None:
-    """
-    High-level ingestion function:
-    - Loads DOCX and PDF files
-    - Wraps them as Documents
-    - Splits into chunks
-    - Stores chunks in the PostgreSQL pgvector table
+    """Ingest annual-report files into PostgreSQL and store vector embeddings.
 
-    Args:
-        Doc_paths: File paths to company annual report DOCX or PDF files.
-        stock_tickers: List of stock tickers corresponding to each file.
+    Input:
+        Doc_paths (List[str]): Report file paths to read and ingest.
+        stock_tickers (List[str]): Matching ticker symbols for each path.
 
-    Returns:
-        None. Data is persisted in PostgreSQL.
+    Output:
+        None. New or changed reports are chunked, embedded, and persisted to the
+        configured pgvector table.
     """
     # 1. Build documents and hash each source file.
     docs = build_AnnualReport_documents(Doc_paths, stock_tickers)
@@ -390,6 +451,15 @@ def get_company_annual_report_version_id(
     stock_ticker: str,
     source_file: str,
 ) -> str:
+    """Fetch the stored version hash for a specific ticker and report file.
+
+    Input:
+        stock_ticker (str): Company ticker to query.
+        source_file (str): Path to the report file on disk.
+
+    Output:
+        str: The document version identifier stored in the database.
+    """
     ticker = stock_ticker.strip().upper()
     if not ticker:
         raise ValueError("stock_ticker cannot be empty.")
@@ -426,6 +496,17 @@ def build_company_annual_report_cache_key(
     source_file: str,
     query: str,
 ) -> str:
+    """Create a versioned cache key for a ticker, report, and user query.
+
+    Input:
+        stock_ticker (str): Company ticker to access.
+        source_file (str): Path to the annual report file.
+        query (str): User query for the cached result.
+
+    Output:
+        str: A deterministic cache identifier that changes whenever the report or
+        query changes.
+    """
     version_id = get_company_annual_report_version_id(stock_ticker, source_file)
     source_id = hashlib.sha256(
         str(Path(source_file).resolve()).encode("utf-8")
@@ -447,6 +528,16 @@ class CompanyAnnualReportRetriever(BaseRetriever):
         *,
         run_manager: CallbackManagerForRetrieverRun,
     ) -> List[Document]:
+        """Return relevant report chunks for a search query using vector similarity.
+
+        Input:
+            query (str): Natural-language search string.
+            run_manager: Callback manager used by LangChain when the retriever runs.
+
+        Output:
+            List[Document]: The top matching chunk documents for the configured
+            ticker, including their metadata.
+        """
         query_vector = _get_embeddings().embed_query(query)
         distance = report_table.c.embedding.cosine_distance(query_vector)
         statement = (
@@ -466,13 +557,14 @@ class CompanyAnnualReportRetriever(BaseRetriever):
 
 
 def get_company_annual_report_retriever(stock_ticker: str) -> CompanyAnnualReportRetriever:
-    """
-    Creates a retriever for the requested ticker in the annual-report table.
+    """Create a retriever that searches a single ticker's annual reports.
 
-    The retriever is used by agents to fetch relevant company annual reports based on a natural language query (e.g., 'Q3 earnings call summary').
+    Input:
+        stock_ticker (str): Desired company ticker to filter on.
 
-    Returns:
-        A retriever that supports .invoke(query).
+    Output:
+        CompanyAnnualReportRetriever: A retriever instance that supports
+        .invoke(query) and returns the most relevant chunks.
     """
     if not stock_ticker.strip():
         raise ValueError("stock_ticker cannot be empty.")

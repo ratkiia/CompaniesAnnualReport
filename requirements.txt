@@ -20,6 +20,8 @@ faiss-cpu>=1.7.4
 # Optional UI / utilities
 streamlit>=1.36.0
 
+# API
+fastapi>=0.110.0
 psycopg[binary]
 uvicorn
 pydantic

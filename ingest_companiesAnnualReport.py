@@ -14,6 +14,16 @@ SUPPORTED_REPORT_EXTENSIONS = {".docx", ".pdf"}
 
 
 def find_company_annual_reports(data_dir: Path) -> Tuple[List[str], List[str]]:
+    """Locate supported annual-report files under each ticker folder.
+
+    Input:
+        data_dir (Path): Root directory that contains company folders such as
+        Data/MSFT or Data/AAPL.
+
+    Output:
+        Tuple[List[str], List[str]]: A pair of parallel lists containing the
+        report paths and their matching uppercase ticker symbols.
+    """
     if not data_dir.is_dir():
         raise FileNotFoundError(f"Data folder not found: {data_dir}")
 
@@ -44,6 +54,15 @@ def find_company_annual_reports(data_dir: Path) -> Tuple[List[str], List[str]]:
 
 
 def main() -> None:
+    """Run the ingestion workflow across all report files in the Data folder.
+
+    Input:
+        None. Reads the local Data directory next to this script.
+
+    Output:
+        None. The function ingests each discovered report into the configured
+        pgvector table.
+    """
     data_dir = Path(__file__).resolve().parent / "Data"
     doc_paths, stock_tickers = find_company_annual_reports(data_dir)
     for report_path, ticker in zip(doc_paths, stock_tickers):
