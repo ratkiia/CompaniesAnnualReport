@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "case_id": "msft-risks",
+      "ticker": "MSFT",
+      "query": "What were the company's major risks?",
+      "expected_keywords": [
+        "risk",
+        "cyber",
+        "ai",
+        "security"
+      ],
+      "minimum_sources": 1,
+      "pass_threshold": 0.5
+    },
+    {
+      "case_id": "meta-revenue",
+      "ticker": "META",
+      "query": "What drove revenue growth?",
+      "expected_keywords": [
+        "revenue",
+        "growth",
+        "advertising"
+      ],
+      "minimum_sources": 1,
+      "pass_threshold": 0.5
+    }
+  ]
+}

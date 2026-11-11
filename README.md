@@ -192,6 +192,25 @@ Its response includes an `answer` and a `sources` array with report filenames,
 chunk indexes, and excerpts. Keep the API private or add authentication before
 exposing it beyond a trusted local environment.
 
+## Evals (step 1)
+
+A lightweight evaluation harness lives in `evals/run_evals.py` and uses a JSON
+case file in `evals/cases.json`. Each case declares a ticker, a query, expected
+keywords, and a minimum source count. The runner executes the same retrieval and
+answer pipeline used by the app, then scores the result on:
+
+- answer relevance using expected keyword coverage
+- source coverage using the number of retrieved excerpts
+
+Run the suite from the project root:
+
+```powershell
+python .\evals\run_evals.py --dataset .\evals\cases.json
+```
+
+This gives you a fast, deterministic baseline before adding broader LLM-based
+judges or larger datasets.
+
 ## API function reference
 
 The service exposes a small set of Python functions that power the API flow:

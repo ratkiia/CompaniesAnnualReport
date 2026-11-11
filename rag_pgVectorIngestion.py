@@ -395,7 +395,7 @@ def ingest_CompanyAnnualRpt_docs(
     chunks = splitter.split_documents(changed_docs)
     print(f"[DEBUG] Created {len(chunks)} chunks")
 
-    if not chunks:
+    if not chunks: 
         raise ValueError("No text chunks were extracted from the changed reports.")
 
     # 3. Generate embeddings only for chunks that need to be inserted.
